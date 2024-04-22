@@ -11,6 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from scipy.special import softmax
 from sklearn.ensemble import StackingClassifier
+import numpy as np
 
 
 # 여러 Excel 파일 로드 및 합치기
@@ -33,13 +34,12 @@ for i in range(1, num_rows + 1):
     col_name = f'VOLT {i}'
     diff_col_name = f'DIFF {col_name}'
     # 새로운 열을 미리 생성합니다. 초기값은 NaN 또는 0일 수 있습니다.
-    df_sampled[diff_col_name] = 0.0  # 또는 pd.NA 대신 0을 사용할 수 있습니다.
+    df_sampled[diff_col_name] = 0.0
+#    print(df_sampled[diff_col_name])
     
     for j in range(1, df_sampled.shape[0]):
         # .loc를 사용하여 값을 안전하게 할당
         df_sampled.loc[j, diff_col_name] = df_sampled.loc[j-1, col_name] - df_sampled.loc[j, col_name]
-
-#print(df_sampled[['Time(s)', 'VOLT 1', 'DIFF VOLT 1', 'VOLT 2', 'DIFF VOLT 2']])
 
 diff_volt_columns = [f'DIFF VOLT {i}' for i in range(1, num_rows + 1)]
 df_sampled['Fault'] = df_sampled[diff_volt_columns].max(axis=1) >= 0.85
@@ -49,6 +49,7 @@ df_sampled['Fault'] = df_sampled[diff_volt_columns].max(axis=1) >= 0.85
 def find_faulty_volts(row):
     return [i for i, val in enumerate(row[diff_volt_columns], 1) if val >= 0.85]
 
+# 고장난 모선 검증
 df_sampled['Faulty Volts'] = df_sampled.apply(find_faulty_volts, axis=1)
 
 # volt1 - volt9 평균값 
@@ -57,11 +58,34 @@ df_sampled['VOLT_mean'] = df_sampled[[f'VOLT {i}' for i in range(1, num_rows + 1
 # volt1 - volt 9 표준편차
 df_sampled['VOLT_std'] = df_sampled[[f'VOLT {i}' for i in range(1, num_rows + 1)]].std(axis=1)
 
-# Fault가 True인 경우만 필터링
+# Softmax 함수
+def softmax(x):
+    e_x = np.exp(x - np.max(x))  # Stability improvement by subtracting max from x
+    return e_x / e_x.sum()
+
+# SoftMax 열 추가 함수
+def add_softmax_columns(df, num_rows):
+    # 각 VOLT 열에 대해 SoftMax 적용
+    for i in range(1, num_rows + 1):
+        volt_column = f'VOLT {i}'
+        softmax_volt_column = f'SoftMax VOLT {i}'
+        df[softmax_volt_column] = softmax(df[[volt_column]].values)  # 한 열에 대해서만 SoftMax 적용
+
+    # 각 DIFF VOLT 열에 대해 SoftMax 적용
+    for i in range(1, num_rows + 1):
+        diff_volt_column = f'DIFF VOLT {i}'
+        softmax_diff_volt_column = f'SoftMax DIFF VOLT {i}'
+        df[softmax_diff_volt_column] = softmax(df[[diff_volt_column]].values)  # 한 열에 대해서만 SoftMax 적용
+
+    return df
+
+
+# 새로운 열 추가
+df_sampled = add_softmax_columns(df_sampled, num_rows)
+
+# Fault가 True인 경우만 필터링 및 추가 계산
 faulty_rows = df_sampled[df_sampled['Fault'] == True]
-
 faulty_rows['Failure_Probability'] = faulty_rows['VOLT_mean']**2 / faulty_rows['VOLT_std']
-
 
 # 결과 출력, VOLT 1에서 VOLT 9, DIFF VOLT 1에서 DIFF VOLT 9
 columns_to_show = ['Time(s)'] + [f'VOLT {i}' for i in range(1, num_rows + 1)] + [f'DIFF VOLT {i}' for i in range(1, num_rows + 1)] + ['Fault', 'Faulty Volts']
@@ -74,17 +98,28 @@ print(faulty_rows[['Failure_Probability', 'VOLT_mean', 'VOLT_std']])
 
 # 클래스 불균형 정도 확인
 print(df_sampled['Fault'].value_counts())
+print(df_sampled)
 
 
 
 
 # 훈련 데이터와 테스트 데이터로 분할
+
+
 X = df_sampled.drop(['Fault', 'Faulty Volts'], axis=1)  # 비특성 열 제거
 y = df_sampled['Fault'].astype(int)  # Fault 열을 정수형으로 변환
 
-
-
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# 첫 번째 열과 두 번째 열의 값 출력
+print("First column values:\n", X.iloc[:, 0])
+print("Second column values:\n", X.iloc[:, 1])
+
+# 첫 번째 행과 두 번째 행의 값 출력
+print("First row values:\n", X.iloc[0, :])
+print("Second row values:\n", X.iloc[1, :])
+
+
 
 # 데이터 스케일링
 scaler = StandardScaler()
@@ -102,37 +137,27 @@ gbm = GradientBoostingClassifier(random_state=42)
 rf = RandomForestClassifier(random_state=42)
 svm = SVC(random_state=42, probability=True)  # SVM 모델에 probability=True 설정
 
-gbm.fit(X_train, y_train)
 
-predictions = gbm.predict(X_test_scaled)
-print(confusion_matrix(y_test, predictions))
-print(classification_report(y_test, predictions))
-
-
-#gbm_param_dist = {'n_estimators': [100, 200, 500], 
-#                  'learning_rate': [0.1, 0.05, 0.01],
-#                  'max_depth': [3, 4, 5],
-#                  'max_features': ['sqrt', 'log2', None]}
-
-gbm_param_grid = {'n_estimators': [100, 200], 
-                  'learning_rate': [0.05, 0.01],
-                  'max_depth': [3, 4],
-                  'max_features': ['sqrt', 'log2']}  # 정규화 매개변수 추가
+gbm_param_grid = {
+    'n_estimators': [50, 100, 200, 300],
+    'learning_rate': [0.01, 0.05, 0.1],
+    'max_depth': [1,2,3],
+    'max_features': ['sqrt', 'log2', None]  # 정규화 매개변수 'None' 추가
+}
 
 
-rf_param_dist = {'n_estimators': [100, 200, 500],
-                 'max_depth': [3, 4, 5], 
-                 'max_features': ['sqrt', 'log2', None]}
+rf_param_dist = {
+    'n_estimators': [300, 500, 700, 1000],
+    'max_depth': [1, 2, 3, 4, 5, 6, 7],
+    'max_features': ['sqrt', 'log2', None]
+}
 
 
-#svm_param_dist = {'C': [0.1, 1, 10],
-#                  'kernel': ['rbf', 'poly', 'sigmoid'],
-#                  'gamma': ['scale', 'auto']}
-
-# SVM 하이퍼파라미터 범위 조정 및 정규화 매개변수 추가
-svm_param_grid = {'C': [1, 10], 
-                  'kernel': ['rbf', 'poly'],
-                  'gamma': ['scale']}
+svm_param_grid = {
+    'C': [0.1, 1, 10, 100],
+    'kernel': ['rbf', 'poly', 'sigmoid'],
+    'gamma': ['scale', 'auto']  # 'auto' 옵션 추가
+}
 
 gbm_search = GridSearchCV(gbm, gbm_param_grid, cv=10, scoring='f1', n_jobs=-1)
 #gbm_random_search = RandomizedSearchCV(gbm, gbm_param_dist, cv=5, scoring='f1', n_iter=20, random_state=42)
