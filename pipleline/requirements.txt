@@ -1,0 +1,9 @@
+pandas
+numpy
+matplotlib
+keras
+tensorflow
+scikit-learn
+requests
+kfp
+responses
