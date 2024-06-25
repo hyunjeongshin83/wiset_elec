@@ -1,0 +1,172 @@
+# PIPELINE DEFINITION
+# Name: ml-app-pipeline
+# Description: Pipeline for ML application
+components:
+  comp-data-generation-op:
+    executorLabel: exec-data-generation-op
+  comp-model-training-op:
+    executorLabel: exec-model-training-op
+  comp-smartthings-integration-op:
+    executorLabel: exec-smartthings-integration-op
+  comp-tapestry-dht-op:
+    executorLabel: exec-tapestry-dht-op
+deploymentSpec:
+  executors:
+    exec-data-generation-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - data_generation_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef data_generation_op() -> None:\n    import subprocess\n    subprocess.run(['python',\
+          \ 'data_generation.py'])\n\n"
+        image: python:3.8
+    exec-model-training-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_training_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef model_training_op() -> None:\n    import subprocess\n    subprocess.run(['python',\
+          \ 'model_training.py'])\n\n"
+        image: python:3.8
+    exec-smartthings-integration-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - smartthings_integration_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef smartthings_integration_op() -> None:\n    import subprocess\n\
+          \    subprocess.run(['python', 'smartthings_integration.py'])\n\n"
+        image: python:3.8
+    exec-tapestry-dht-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - tapestry_dht_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef tapestry_dht_op() -> None:\n    import subprocess\n    subprocess.run(['python',\
+          \ 'tapestry_dht.py'])\n\n"
+        image: python:3.8
+pipelineInfo:
+  description: Pipeline for ML application
+  name: ml-app-pipeline
+root:
+  dag:
+    tasks:
+      data-generation-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-data-generation-op
+        taskInfo:
+          name: data-generation-op
+      model-training-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-training-op
+        dependentTasks:
+        - data-generation-op
+        taskInfo:
+          name: model-training-op
+      smartthings-integration-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-smartthings-integration-op
+        dependentTasks:
+        - tapestry-dht-op
+        taskInfo:
+          name: smartthings-integration-op
+      tapestry-dht-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-tapestry-dht-op
+        dependentTasks:
+        - model-training-op
+        taskInfo:
+          name: tapestry-dht-op
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.8.0

@@ -1,0 +1,56 @@
+pip install -r requirements.txt
+
+
+docker build -t my-ml-app .
+
+
+docker login
+docker tag my-ml-app:latest my-dockerhub-username/my-ml-app:latest
+docker push my-dockerhub-username/my-ml-app:latest
+
+
+python pipeline.py
+
+
+kfp run pipeline ml_pipeline.yaml
+
+
+minikube status
+minikube delete
+minikube start
+kubectl get pods -n kubeflow
+minikube tunnel --cleanup
+minikube tunnel
+minikube ip
+minikube start
+minikube start --alsologtostderr
+minikube start --vm-driver=hyperv
+
+
+minikube profile list
+
+--------------------------------------------------------------------------------------------
+cd C:\Users\SM-PC\Desktop\wiset
+
+# 1. 로컬 환경 설정
+pip install -r requirements.txt
+
+# 2. Docker 이미지 빌드 및 푸시
+docker build -t my-ml-app .
+docker login
+docker tag my-ml-app:latest hyunjeongshin/my-ml-app:latest
+docker push hyunjeongshin/my-ml-app:latest
+
+# 3. Kubeflow 파이프라인 컴파일 및 테스트
+python test_pipeline.py
+
+# 4. 전체 프로젝트 실행
+python main.py
+
+git hub -----------------------------------------------------------------------------------------
+
+git add .
+git commit -m "Add CI/CD pipeline"
+git push origin main
+
+
